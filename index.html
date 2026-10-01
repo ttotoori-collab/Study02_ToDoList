@@ -5,10 +5,139 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>할 일 관리</title>
 <style>
+:root {
+  --fg: #1f2328;
+  --muted: #6b7280;
+  --line: #e5e7eb;
+  --accent: #2563eb;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 24px 16px 48px;
+  font-family: -apple-system, "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
+  color: var(--fg);
+  background: #fff;
+  line-height: 1.5;
+}
+main { max-width: 600px; margin: 0 auto; }
+h1 { font-size: 22px; margin: 0 0 16px; }
+
+#warning {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border: 1px solid #fca5a5;
+  background: #fef2f2;
+  color: #991b1b;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+#progress { margin-bottom: 20px; }
+.bar { height: 8px; background: var(--line); border-radius: 999px; overflow: hidden; }
+.bar-fill { height: 100%; background: var(--accent); transition: width .15s; }
+.summary { margin-top: 6px; font-size: 15px; font-weight: 600; }
+.per-category { font-size: 13px; color: var(--muted); }
+
+#add-form { display: flex; gap: 8px; margin-bottom: 12px; }
+#add-form #text { flex: 1 1 auto; min-width: 0; }
+input, select, button {
+  font: inherit;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: inherit;
+}
+button { cursor: pointer; }
+button:hover:not(:disabled) { background: #f6f7f9; }
+button:disabled { color: var(--muted); cursor: default; }
+#add-form button[type="submit"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+#filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.status-tabs { display: inline-flex; gap: 4px; }
+.status-tabs button.active { background: var(--fg); border-color: var(--fg); color: #fff; }
+#clear-done { margin-left: auto; font-size: 14px; }
+
+#list { list-style: none; margin: 0; padding: 0; }
+#list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--line);
+}
+#list .text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+#list .edit-input { flex: 1 1 auto; min-width: 0; }
+#list li.done .text { text-decoration: line-through; color: var(--muted); }
+.badge {
+  flex: 0 0 auto;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+#list button { padding: 4px 8px; font-size: 13px; }
+
+#empty { color: var(--muted); padding: 24px 0; text-align: center; }
+
+#test-panel {
+  max-width: 600px;
+  margin: 32px auto 0;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+#test-panel div:last-child { margin-top: 8px; font-weight: 700; }
 </style>
 </head>
 <body>
+<main>
+  <h1>할 일 관리</h1>
+
+  <p id="warning" hidden></p>
+
+  <section id="progress"></section>
+
+  <form id="add-form" autocomplete="off">
+    <input id="text" type="text" maxlength="200" placeholder="할 일 입력...">
+    <!-- option 은 CATEGORIES 에서 생성한다 (라벨 중복을 피한다) -->
+    <select id="category"></select>
+    <button type="submit">추가</button>
+  </form>
+
+  <div id="filters">
+    <span class="status-tabs">
+      <button type="button" data-status="active">미완료</button>
+      <button type="button" data-status="all">전체</button>
+      <button type="button" data-status="done">완료</button>
+    </span>
+    <select id="filter-category"></select>
+    <button type="button" id="clear-done">완료 비우기</button>
+  </div>
+
+  <ul id="list"></ul>
+  <p id="empty" hidden></p>
+</main>
+
 <div id="test-panel"></div>
+
+<template id="todo-item">
+  <li>
+    <input type="checkbox" class="check">
+    <span class="text"></span>
+    <span class="badge"></span>
+    <button type="button" data-action="edit">수정</button>
+    <button type="button" data-action="delete">삭제</button>
+  </li>
+</template>
 
 <script>
 /* =========================================================
@@ -117,6 +246,97 @@ function progress(todos, category = "all") {
   const total = pool.length;
   const done = pool.filter(t => t.done).length;
   return { done, total, percent: total === 0 ? 0 : Math.round((done / total) * 100) };
+}
+
+/* =========================================================
+   5. RENDER  — 상태를 화면에 반영한다 (항상 전체를 다시 그린다)
+   ========================================================= */
+const FALLBACK_CATEGORY = { label: "기타", color: "#6b7280" };
+
+function categoryOf(key) {
+  return CATEGORIES[key] || FALLBACK_CATEGORY;
+}
+
+function renderList(listEl, todos, editingId) {
+  listEl.textContent = "";
+  const tpl = document.getElementById("todo-item");
+  for (const todo of todos) {
+    const li = tpl.content.firstElementChild.cloneNode(true);
+    li.dataset.id = todo.id;
+    if (todo.done) li.classList.add("done");
+    li.querySelector(".check").checked = todo.done;
+
+    const cat = categoryOf(todo.category);
+    const badge = li.querySelector(".badge");
+    badge.textContent = cat.label;
+    badge.style.color = cat.color;
+    badge.style.backgroundColor = cat.color + "1a";
+
+    const textEl = li.querySelector(".text");
+    if (editingId === todo.id) {
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "edit-input";
+      input.maxLength = MAX_LEN;
+      input.value = todo.text;
+      textEl.replaceWith(input);
+    } else {
+      textEl.textContent = todo.text;
+    }
+    listEl.appendChild(li);
+  }
+}
+
+function renderProgress(progressEl, todos) {
+  progressEl.textContent = "";
+  const all = progress(todos);
+
+  const bar = document.createElement("div");
+  bar.className = "bar";
+  const fill = document.createElement("div");
+  fill.className = "bar-fill";
+  fill.style.width = all.percent + "%";
+  bar.appendChild(fill);
+
+  const summary = document.createElement("div");
+  summary.className = "summary";
+  summary.textContent = all.done + "/" + all.total + " (" + all.percent + "%)";
+
+  const perCategory = document.createElement("div");
+  perCategory.className = "per-category";
+  perCategory.textContent = Object.keys(CATEGORIES).map(key => {
+    const p = progress(todos, key);
+    return CATEGORIES[key].label + " " + p.done + "/" + p.total;
+  }).join(" · ");
+
+  progressEl.appendChild(bar);
+  progressEl.appendChild(summary);
+  progressEl.appendChild(perCategory);
+}
+
+function render(root, state, ui) {
+  const warningEl = root.querySelector("#warning");
+  warningEl.textContent = ui.warning || "";
+  warningEl.hidden = !ui.warning;
+
+  renderProgress(root.querySelector("#progress"), state.todos);
+
+  const shown = visibleTodos(state.todos, ui.statusFilter, ui.categoryFilter);
+  renderList(root.querySelector("#list"), shown, ui.editingId);
+
+  root.querySelectorAll("[data-status]").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.status === ui.statusFilter);
+  });
+
+  const emptyEl = root.querySelector("#empty");
+  if (shown.length > 0) {
+    emptyEl.hidden = true;
+  } else {
+    emptyEl.hidden = false;
+    emptyEl.textContent = state.todos.length === 0
+      ? "할 일이 없습니다. 위에서 추가해 보세요."
+      : "조건에 맞는 할 일이 없습니다.";
+  }
 }
 
 /* =========================================================
@@ -328,6 +548,66 @@ test("할 일이 없으면 0/0 0%", () => {
 test("카테고리별 진행률을 따로 센다", () => {
   const todos = [T({ id: "a", category: "work", done: true }), T({ id: "b", category: "work" }), T({ id: "c", category: "study" })];
   assertDeep(progress(todos, "work"), { done: 1, total: 2, percent: 50 });
+});
+
+/* ---- RENDER ---- */
+const detachedList = () => document.createElement("ul");
+
+test("renderList는 항목 수와 순서를 반영한다", () => {
+  const ul = detachedList();
+  renderList(ul, [T({ id: "a", text: "첫째" }), T({ id: "b", text: "둘째" })], null);
+  assertEq(ul.children.length, 2);
+  assertEq(ul.children[0].dataset.id, "a");
+  assertEq(ul.querySelector("li .text").textContent, "첫째");
+});
+
+test("완료 항목에 done 클래스를 붙인다", () => {
+  const ul = detachedList();
+  renderList(ul, [T({ done: true })], null);
+  assertEq(ul.children[0].classList.contains("done"), true);
+});
+
+test("재렌더는 이전 항목을 남기지 않는다", () => {
+  const ul = detachedList();
+  renderList(ul, [T({ id: "a" }), T({ id: "b" })], null);
+  renderList(ul, [T({ id: "c" })], null);
+  assertEq(ul.children.length, 1);
+  assertEq(ul.children[0].dataset.id, "c");
+});
+
+test("텍스트를 HTML로 해석하지 않는다", () => {
+  const ul = detachedList();
+  const raw = "<img src=x onerror=alert(1)>";
+  renderList(ul, [T({ text: raw })], null);
+  assertEq(ul.querySelector(".text").textContent, raw);
+  assertEq(ul.querySelector(".text img"), null);
+});
+
+test("카테고리 배지에 라벨을 쓴다", () => {
+  const ul = detachedList();
+  renderList(ul, [T({ category: "study" })], null);
+  assertEq(ul.querySelector(".badge").textContent, "공부");
+});
+
+test("모르는 카테고리는 기타로 그린다", () => {
+  assertDeep(categoryOf("없는값"), { label: "기타", color: "#6b7280" });
+  const ul = detachedList();
+  renderList(ul, [T({ category: "없는값" })], null);
+  assertEq(ul.querySelector(".badge").textContent, "기타");
+});
+
+test("편집 중인 항목은 입력 필드로 그린다", () => {
+  const ul = detachedList();
+  renderList(ul, [T({ id: "a", text: "원래" })], "a");
+  assertEq(ul.querySelector("li input.edit-input").value, "원래");
+});
+
+test("renderProgress는 개수와 퍼센트를 함께 쓴다", () => {
+  const el = document.createElement("div");
+  renderProgress(el, [T({ id: "a", done: true }), T({ id: "b" })]);
+  assertEq(el.textContent.includes("1/2"), true);
+  assertEq(el.textContent.includes("50%"), true);
+  assertEq(el.textContent.includes("업무"), true);
 });
 
 /* =========================================================
