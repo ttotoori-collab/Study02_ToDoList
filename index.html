@@ -340,6 +340,102 @@ function render(root, state, ui) {
 }
 
 /* =========================================================
+   6. EVENTS  — 상태 보유와 리스너 연결
+   흐름: 이벤트 → 상태 교체 → 저장 → 전체 재렌더
+   ========================================================= */
+let state = { version: 1, todos: [] };
+let ui = { statusFilter: "active", categoryFilter: "all", editingId: null, warning: null };
+let appRoot = null;   // mount 전(테스트 실행 중)에는 그리지 않는다
+
+function rerender() {
+  if (appRoot) render(appRoot, state, ui);
+}
+
+function setTodos(nextTodos) {
+  state = { ...state, todos: nextTodos };
+  const result = saveState(state);
+  ui.warning = result.ok ? null : "저장하지 못했습니다. 브라우저 저장 공간을 확인해 주세요.";
+  rerender();
+}
+
+function setUi(patch) {
+  ui = { ...ui, ...patch };
+  rerender();
+}
+
+function fillCategorySelects(root) {
+  const addSelect = root.querySelector("#category");
+  const filterSelect = root.querySelector("#filter-category");
+  addSelect.textContent = "";
+  filterSelect.textContent = "";
+
+  const allOption = document.createElement("option");
+  allOption.value = "all";
+  allOption.textContent = "전체";
+  filterSelect.appendChild(allOption);
+
+  for (const key of Object.keys(CATEGORIES)) {
+    const option = document.createElement("option");
+    option.value = key;
+    option.textContent = CATEGORIES[key].label;
+    addSelect.appendChild(option);
+    filterSelect.appendChild(option.cloneNode(true));
+  }
+}
+
+function mount(root) {
+  appRoot = root;
+  fillCategorySelects(root);
+
+  const loaded = loadState();
+  state = loaded.state;
+  if (loaded.error === "corrupt") {
+    ui.warning = "저장된 데이터가 손상되어 새로 시작합니다.";
+  } else if (loaded.error === "unavailable") {
+    ui.warning = "이 브라우저에서는 저장되지 않습니다.";
+  }
+
+  const textInput = root.querySelector("#text");
+  const categorySelect = root.querySelector("#category");
+
+  root.querySelector("#add-form").addEventListener("submit", event => {
+    event.preventDefault();
+    const next = addTodo(state.todos, textInput.value, categorySelect.value);
+    if (next !== state.todos) setTodos(next);
+    // 연속 입력을 위해 비우되 포커스는 유지한다. 카테고리 선택은 건드리지 않는다.
+    textInput.value = "";
+    textInput.focus();
+  });
+
+  // 리스너는 ul 하나에만 붙인다 (이벤트 위임)
+  root.querySelector("#list").addEventListener("click", event => {
+    const li = event.target.closest("li[data-id]");
+    if (!li) return;
+    const id = li.dataset.id;
+
+    if (event.target.classList.contains("check")) {
+      setTodos(toggleTodo(state.todos, id));
+      return;
+    }
+    if (event.target.dataset.action === "delete") {
+      if (confirm("삭제할까요?")) setTodos(removeTodo(state.todos, id));
+    }
+  });
+
+  root.querySelectorAll("[data-status]").forEach(button => {
+    button.addEventListener("click", () => {
+      setUi({ statusFilter: button.dataset.status, editingId: null });
+    });
+  });
+
+  root.querySelector("#filter-category").addEventListener("change", event => {
+    setUi({ categoryFilter: event.target.value, editingId: null });
+  });
+
+  rerender();
+}
+
+/* =========================================================
    TEST HARNESS  (?test 일 때만 동작)
    ========================================================= */
 const _tests = [];
@@ -610,10 +706,29 @@ test("renderProgress는 개수와 퍼센트를 함께 쓴다", () => {
   assertEq(el.textContent.includes("업무"), true);
 });
 
+/* ---- EVENTS ---- */
+test("저장에 실패하면 경고를 세우고 목록은 유지한다", () => {
+  const before = state.todos;
+  const realSave = saveState;
+  saveState = () => ({ ok: false, error: "QuotaExceeded" });
+  setTodos([T({ id: "zz" })]);
+  assertEq(ui.warning !== null, true);
+  assertEq(state.todos.length, 1);
+  // 복구는 state 를 직접 되돌린다. setTodos 로 되돌리면 실제 localStorage 를
+  // 빈 목록으로 덮어써서 사용자 데이터가 날아간다.
+  saveState = realSave;
+  state = { ...state, todos: before };
+  setUi({ warning: null });
+});
+
 /* =========================================================
    BOOTSTRAP
    ========================================================= */
-if (location.search.includes("test")) runTests();
+if (location.search.includes("test")) {
+  runTests();
+} else {
+  mount(document.body);
+}
 </script>
 </body>
 </html>
