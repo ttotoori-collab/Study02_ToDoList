@@ -366,6 +366,15 @@ function setUi(patch) {
   rerender();
 }
 
+// 한글 입력은 Enter 로 조합을 끝낸다. 조합 중의 Enter 를 저장으로 받으면
+// 마지막 글자가 잘린 채 저장되고 편집이 닫힌다.
+function editKeyAction(event) {
+  if (event.isComposing) return "none";
+  if (event.key === "Enter") return "save";
+  if (event.key === "Escape") return "cancel";
+  return "none";
+}
+
 function fillCategorySelects(root) {
   const addSelect = root.querySelector("#category");
   const filterSelect = root.querySelector("#filter-category");
@@ -437,12 +446,13 @@ function mount(root) {
     const li = event.target.closest("li[data-id]");
     if (!li) return;
 
-    if (event.key === "Enter") {
+    const action = editKeyAction(event);
+    if (action === "save") {
       event.preventDefault();
       const next = editTodo(state.todos, li.dataset.id, event.target.value);
       ui.editingId = null;
       setTodos(next);
-    } else if (event.key === "Escape") {
+    } else if (action === "cancel") {
       setUi({ editingId: null });
     }
   });
@@ -740,6 +750,14 @@ test("renderProgress는 개수와 퍼센트를 함께 쓴다", () => {
 });
 
 /* ---- EVENTS ---- */
+test("한글 조합 중 Enter는 저장하지 않는다", () => {
+  assertEq(editKeyAction({ key: "Enter", isComposing: true }), "none");
+  assertEq(editKeyAction({ key: "Enter", isComposing: false }), "save");
+  assertEq(editKeyAction({ key: "Escape", isComposing: false }), "cancel");
+  assertEq(editKeyAction({ key: "Escape", isComposing: true }), "none");
+  assertEq(editKeyAction({ key: "a", isComposing: false }), "none");
+});
+
 test("저장에 실패하면 경고를 세우고 목록은 유지한다", () => {
   const before = state.todos;
   const realSave = saveState;
