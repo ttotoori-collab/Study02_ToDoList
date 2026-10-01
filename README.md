@@ -1,4 +1,4 @@
-<!-- 2026-10-01 12:20 KST -->
+<!-- 2026-10-01 15:40 KST -->
 
 # Study02_ToDoList
 
@@ -8,9 +8,17 @@
 
 **→ 바로 써 보기: https://ttotoori-collab.github.io/Study02_ToDoList/**
 
+넓은 화면에서는 왼쪽에 진행률과 입력줄, 필터를 모은 사이드바를 두고 오른쪽에 목록을 보여 준다. 창을 좁히면 한 줄 배치로 바뀐다.
+
+처음 만든 좁은 화면 전용 버전도 남겨 두었다.
+
+- **https://ttotoori-collab.github.io/Study02_ToDoList/mobile_version/** — 폭 600px 한 줄 배치
+
+두 버전의 기능은 같다. 화면 배치만 다르다. 같은 주소에서 돌아가므로 저장소도 공유한다. 한쪽에서 적은 할 일이 다른 쪽에도 그대로 보인다.
+
 ## 현재 상태
 
-**v1 구현 완료, GitHub Pages 배포됨.** `index.html` 하나로 동작한다.
+**v1 구현 완료, GitHub Pages 배포됨. 데스크톱 2단 배치 추가.** `index.html` 하나로 동작한다.
 
 - [PRD.md](PRD.md) — 요구사항, 데이터 모델, 화면 설계, 완료 기준
 - [PROMPTS.md](PROMPTS.md) — PRD를 클로드 코드에서 실행할 5단계 프롬프트로 나눈 것
@@ -57,7 +65,10 @@ https://ttotoori-collab.github.io/Study02_ToDoList/?test
 
 - HTML, CSS, 순수 자바스크립트
 - 라이브러리와 프레임워크 없음
-- 파일 구성: `index.html` 하나 (CSS와 자바스크립트를 같은 파일 안에 둔다)
+- 파일 구성: HTML 하나에 CSS와 자바스크립트를 같이 담는다
+  - [index.html](index.html) — 데스크톱 2단 배치
+  - [mobile_version/index.html](mobile_version/index.html) — 처음 만든 한 줄 배치
+- 두 파일의 자바스크립트는 동일하다. 배치를 바꾸면서 CSS와 마크업만 손봤다
 - 배포: GitHub Pages (`main` 브랜치 루트를 그대로 서빙한다. 빌드 단계가 없어서 가능하다)
 
 ## 구조
@@ -94,3 +105,4 @@ LOGIC과 파생 상태는 DOM을 참조하지 않는다. `?test`로 켜는 테�
 | [README-v1.md](README-v1.md) | PRD만 있던 때 |
 | [README-v2.md](README-v2.md) | 프롬프트 5단계 분할까지 끝난 때 |
 | [README-v3.md](README-v3.md) | v1 구현이 끝난 때 |
+| [README-v4.md](README-v4.md) | 배포까지 끝나고 데스크톱 버전 전인 때 |

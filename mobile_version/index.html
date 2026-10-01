@@ -20,15 +20,7 @@ body {
   background: #fff;
   line-height: 1.5;
 }
-/* 좁은 화면에서는 한 줄로 쌓이고, 넓어지면 사이드바와 목록 2단이 된다 */
-.app {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 20px;
-  max-width: 1100px;
-  margin: 0 auto;
-}
-.main { min-width: 0; }
+main { max-width: 600px; margin: 0 auto; }
 #student { margin: 0 0 4px; font-size: 13px; color: var(--muted); }
 h1 { font-size: 22px; margin: 0 0 16px; }
 
@@ -105,80 +97,37 @@ button:disabled { color: var(--muted); cursor: default; }
   white-space: pre-wrap;
 }
 #test-panel div:last-child { margin-top: 8px; font-weight: 700; }
-
-/* ---- 데스크톱 2단 배치 ---- */
-@media (min-width: 900px) {
-  body { padding: 40px 32px 72px; }
-
-  .app {
-    grid-template-columns: 320px 1fr;
-    gap: 40px;
-    align-items: start;
-  }
-
-  /* 목록을 스크롤해도 진행률과 입력줄은 자리를 지킨다 */
-  .side {
-    position: sticky;
-    top: 40px;
-    border-right: 1px solid var(--line);
-    padding-right: 32px;
-  }
-
-  h1 { font-size: 26px; }
-
-  /* 사이드바가 좁으므로 입력줄과 필터는 세로로 쌓는다 */
-  #add-form { flex-direction: column; }
-  #filters {
-    flex-direction: column;
-    align-items: stretch;
-    padding-bottom: 0;
-    border-bottom: none;
-  }
-  .status-tabs { display: flex; }
-  .status-tabs button { flex: 1 1 0; }
-  #clear-done { margin-left: 0; }
-
-  #list { border-top: 1px solid var(--line); }
-  #list li { min-height: 52px; padding: 12px 4px; }
-  #list .text { font-size: 16px; }
-
-  #test-panel { max-width: 1100px; }
-}
 </style>
 </head>
 <body>
-<div class="app">
-  <aside class="side">
-    <p id="student">2601926 김세란</p>
-    <h1>할 일 관리</h1>
+<main>
+  <p id="student">2601926 김세란</p>
+  <h1>할 일 관리</h1>
 
-    <p id="warning" hidden></p>
+  <p id="warning" hidden></p>
 
-    <section id="progress"></section>
+  <section id="progress"></section>
 
-    <form id="add-form" autocomplete="off">
-      <input id="text" type="text" maxlength="200" placeholder="할 일 입력...">
-      <!-- option 은 CATEGORIES 에서 생성한다 (라벨 중복을 피한다) -->
-      <select id="category"></select>
-      <button type="submit">추가</button>
-    </form>
+  <form id="add-form" autocomplete="off">
+    <input id="text" type="text" maxlength="200" placeholder="할 일 입력...">
+    <!-- option 은 CATEGORIES 에서 생성한다 (라벨 중복을 피한다) -->
+    <select id="category"></select>
+    <button type="submit">추가</button>
+  </form>
 
-    <div id="filters">
-      <span class="status-tabs">
-        <button type="button" data-status="active">미완료</button>
-        <button type="button" data-status="all">전체</button>
-        <button type="button" data-status="done">완료</button>
-      </span>
-      <select id="filter-category"></select>
-      <button type="button" id="clear-done">완료 비우기</button>
-    </div>
-  </aside>
+  <div id="filters">
+    <span class="status-tabs">
+      <button type="button" data-status="active">미완료</button>
+      <button type="button" data-status="all">전체</button>
+      <button type="button" data-status="done">완료</button>
+    </span>
+    <select id="filter-category"></select>
+    <button type="button" id="clear-done">완료 비우기</button>
+  </div>
 
-  <main class="main">
-    <ul id="list"></ul>
-    <p id="empty" hidden></p>
-  </main>
-</div>
+  <ul id="list"></ul>
+  <p id="empty" hidden></p>
+</main>
 
 <div id="test-panel"></div>
 
