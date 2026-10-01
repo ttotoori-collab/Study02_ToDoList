@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>할 일 관리</title>
+<style>
+</style>
+</head>
+<body>
+<div id="test-panel"></div>
+
+<script>
+/* =========================================================
+   1. CONFIG
+   ========================================================= */
+const CATEGORIES = {
+  work:     { label: "업무", color: "#2563eb" },
+  personal: { label: "개인", color: "#16a34a" },
+  study:    { label: "공부", color: "#9333ea" }
+};
+const STORAGE_KEY = "todolist.v1";
+const CORRUPT_KEY = "todolist.v1.corrupt";
+const MAX_LEN = 200;
+
+/* =========================================================
+   TEST HARNESS  (?test 일 때만 동작)
+   ========================================================= */
+const _tests = [];
+function test(name, fn) { _tests.push({ name, fn }); }
+
+function assertEq(actual, expected, msg) {
+  if (actual !== expected) {
+    throw new Error((msg ? msg + " — " : "") + "기대 " + String(expected) + ", 실제 " + String(actual));
+  }
+}
+
+function assertDeep(actual, expected, msg) {
+  const a = JSON.stringify(actual);
+  const e = JSON.stringify(expected);
+  if (a !== e) {
+    throw new Error((msg ? msg + " — " : "") + "기대 " + e + ", 실제 " + a);
+  }
+}
+
+function runTests() {
+  const panel = document.getElementById("test-panel");
+  let passed = 0;
+  let failed = 0;
+  for (const t of _tests) {
+    const line = document.createElement("div");
+    try {
+      t.fn();
+      passed++;
+      line.textContent = "PASS " + t.name;
+    } catch (err) {
+      failed++;
+      line.textContent = "FAIL " + t.name + ": " + err.message;
+    }
+    panel.appendChild(line);
+  }
+  const summary = document.createElement("div");
+  summary.textContent = "TESTS: " + passed + " passed, " + failed + " failed";
+  panel.appendChild(summary);
+}
+
+/* =========================================================
+   TESTS
+   ========================================================= */
+test("assertEq는 같은 값을 통과시킨다", () => {
+  assertEq(1 + 1, 2);
+});
+
+/* =========================================================
+   BOOTSTRAP
+   ========================================================= */
+if (location.search.includes("test")) runTests();
+</script>
+</body>
+</html>
