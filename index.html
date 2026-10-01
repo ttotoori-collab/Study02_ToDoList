@@ -25,7 +25,7 @@ body {
   display: grid;
   grid-template-columns: 1fr;
   gap: 20px;
-  max-width: 1100px;
+  max-width: 1200px;
   margin: 0 auto;
 }
 .main { min-width: 0; }
@@ -71,8 +71,10 @@ button:disabled { color: var(--muted); cursor: default; }
   border-bottom: 1px solid var(--line);
   flex-wrap: wrap;
 }
-.status-tabs { display: inline-flex; gap: 4px; }
-.status-tabs button.active { background: var(--fg); border-color: var(--fg); color: #fff; }
+.status-tabs { display: inline-flex; gap: 6px; }
+#filters button, #filters select { border-radius: 999px; }
+#filters button { padding: 6px 14px; color: #4a5058; font-size: 14px; }
+#filters .status-tabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 #clear-done { margin-left: auto; font-size: 14px; }
 
 #list { list-style: none; margin: 0; padding: 0; }
@@ -88,9 +90,12 @@ button:disabled { color: var(--muted); cursor: default; }
 #list li.done .text { text-decoration: line-through; color: var(--muted); }
 .badge {
   flex: 0 0 auto;
+  min-width: 46px;
   font-size: 12px;
-  padding: 2px 8px;
+  padding: 2px 10px;
   border-radius: 999px;
+  color: #fff;
+  text-align: center;
   white-space: nowrap;
 }
 #list button { padding: 4px 8px; font-size: 13px; }
@@ -108,10 +113,10 @@ button:disabled { color: var(--muted); cursor: default; }
 
 /* ---- 데스크톱 2단 배치 ---- */
 @media (min-width: 900px) {
-  body { padding: 40px 32px 72px; }
+  body { padding: 48px 40px 80px; }
 
   .app {
-    grid-template-columns: 320px 1fr;
+    grid-template-columns: 300px 1fr;
     gap: 40px;
     align-items: start;
   }
@@ -119,12 +124,12 @@ button:disabled { color: var(--muted); cursor: default; }
   /* 목록을 스크롤해도 진행률과 입력줄은 자리를 지킨다 */
   .side {
     position: sticky;
-    top: 40px;
+    top: 48px;
     border-right: 1px solid var(--line);
-    padding-right: 32px;
+    padding-right: 40px;
   }
 
-  h1 { font-size: 26px; }
+  h1 { font-size: 28px; }
 
   /* 사이드바가 좁으므로 입력줄과 필터는 세로로 쌓는다 */
   #add-form { flex-direction: column; }
@@ -134,12 +139,12 @@ button:disabled { color: var(--muted); cursor: default; }
     padding-bottom: 0;
     border-bottom: none;
   }
-  .status-tabs { display: flex; }
-  .status-tabs button { flex: 1 1 0; }
+  .status-tabs { display: flex; flex-wrap: wrap; }
   #clear-done { margin-left: 0; }
 
   #list { border-top: 1px solid var(--line); }
-  #list li { min-height: 52px; padding: 12px 4px; }
+  #list li { gap: 14px; min-height: 58px; padding: 8px 6px; }
+  #list li:not(.done):hover { background: #fafbfc; }
   #list .text { font-size: 16px; }
 
   #test-panel { max-width: 1100px; }
@@ -322,8 +327,7 @@ function renderList(listEl, todos, editingId) {
     const cat = categoryOf(todo.category);
     const badge = li.querySelector(".badge");
     badge.textContent = cat.label;
-    badge.style.color = cat.color;
-    badge.style.backgroundColor = cat.color + "1a";
+    badge.style.backgroundColor = cat.color;
 
     const textEl = li.querySelector(".text");
     if (editingId === todo.id) {
