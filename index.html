@@ -58,6 +58,49 @@ let saveState = function (state, store = localStorage) {
 };
 
 /* =========================================================
+   3. LOGIC  — DOM을 모르는 순수 함수
+   거부되는 입력은 원본 todos 를 그대로(같은 참조로) 돌려준다
+   ========================================================= */
+function normalizeText(text) {
+  return String(text == null ? "" : text).replace(/\s+/g, " ").trim();
+}
+
+function makeId(now = Date.now()) {
+  return now.toString(36) + "_" + Math.random().toString(36).slice(2, 7);
+}
+
+function addTodo(todos, text, category, now = Date.now(), idFn = makeId) {
+  const clean = normalizeText(text);
+  if (clean === "" || clean.length > MAX_LEN) return todos;
+  let id = idFn(now);
+  for (let i = 0; i < 5 && todos.some(t => t.id === id); i++) id = idFn(now);
+  return todos.concat({ id, text: clean, category, done: false, createdAt: now, completedAt: null });
+}
+
+function toggleTodo(todos, id, now = Date.now()) {
+  if (!todos.some(t => t.id === id)) return todos;
+  return todos.map(t => (t.id === id ? { ...t, done: !t.done, completedAt: t.done ? null : now } : t));
+}
+
+function editTodo(todos, id, text) {
+  const clean = normalizeText(text);
+  if (clean === "" || clean.length > MAX_LEN) return todos;
+  if (!todos.some(t => t.id === id)) return todos;
+  return todos.map(t => (t.id === id ? { ...t, text: clean } : t));
+}
+
+function removeTodo(todos, id) {
+  if (!todos.some(t => t.id === id)) return todos;
+  return todos.filter(t => t.id !== id);
+}
+
+function clearCompleted(todos, category = "all") {
+  const isTarget = t => t.done && (category === "all" || t.category === category);
+  if (!todos.some(isTarget)) return todos;
+  return todos.filter(t => !isTarget(t));
+}
+
+/* =========================================================
    TEST HARNESS  (?test 일 때만 동작)
    ========================================================= */
 const _tests = [];
@@ -101,6 +144,9 @@ function runTests() {
 /* =========================================================
    TESTS
    ========================================================= */
+// 여러 구획에서 쓰는 공용 헬퍼
+const T = (over = {}) => ({ id: "a", text: "x", category: "work", done: false, createdAt: 1, completedAt: null, ...over });
+
 test("assertEq는 같은 값을 통과시킨다", () => {
   assertEq(1 + 1, 2);
 });
@@ -156,6 +202,73 @@ test("쓰기가 막히면 ok:false를 돌려준다", () => {
 test("저장소 자체가 없으면 unavailable", () => {
   const s = { getItem: () => { throw new Error("blocked"); }, setItem: () => {}, removeItem: () => {} };
   assertEq(loadState(s).error, "unavailable");
+});
+
+/* ---- LOGIC ---- */
+test("addTodo는 기본값을 채워 항목을 추가한다", () => {
+  const r = addTodo([], "장 보기", "personal", 1000, () => "id1");
+  assertEq(r.length, 1);
+  assertDeep(r[0], { id: "id1", text: "장 보기", category: "personal", done: false, createdAt: 1000, completedAt: null });
+});
+
+test("공백만 입력하면 원본을 그대로 돌려준다", () => {
+  const todos = [];
+  assertEq(addTodo(todos, "   ", "work"), todos);
+});
+
+test("개행과 연속 공백을 공백 하나로 정규화한다", () => {
+  const r = addTodo([], "앞\n뒤   사이", "work", 1, () => "id1");
+  assertEq(r[0].text, "앞 뒤 사이");
+});
+
+test("정규화 후 200자를 넘으면 거부한다", () => {
+  const todos = [];
+  assertEq(addTodo(todos, "가".repeat(201), "work"), todos);
+  assertEq(addTodo([], "가".repeat(200), "work", 1, () => "id1").length, 1);
+});
+
+test("생성한 ID가 이미 있으면 다시 생성한다", () => {
+  let n = 0;
+  const idFn = () => (n++ === 0 ? "dup" : "uniq");
+  const r = addTodo([T({ id: "dup" })], "새 항목", "work", 1, idFn);
+  assertEq(r[1].id, "uniq");
+});
+
+test("toggleTodo는 done을 뒤집고 completedAt을 설정한다", () => {
+  const r = toggleTodo([T()], "a", 500);
+  assertEq(r[0].done, true);
+  assertEq(r[0].completedAt, 500);
+  const back = toggleTodo(r, "a", 900);
+  assertEq(back[0].done, false);
+  assertEq(back[0].completedAt, null);
+});
+
+test("editTodo는 텍스트를 바꾸고 빈 텍스트는 거부한다", () => {
+  assertEq(editTodo([T()], "a", "  새 제목 ")[0].text, "새 제목");
+  const todos = [T()];
+  assertEq(editTodo(todos, "a", "   "), todos);
+});
+
+test("removeTodo는 해당 id만 지운다", () => {
+  const r = removeTodo([T({ id: "a" }), T({ id: "b" })], "a");
+  assertEq(r.length, 1);
+  assertEq(r[0].id, "b");
+});
+
+test("clearCompleted는 완료 항목만, 카테고리 범위 안에서 지운다", () => {
+  const todos = [
+    T({ id: "1", done: true, category: "work" }),
+    T({ id: "2", done: true, category: "study" }),
+    T({ id: "3", done: false, category: "work" })
+  ];
+  assertDeep(clearCompleted(todos, "all").map(t => t.id), ["3"]);
+  assertDeep(clearCompleted(todos, "work").map(t => t.id), ["2", "3"]);
+});
+
+test("없는 id를 건드리면 원본을 그대로 돌려준다", () => {
+  const todos = [T()];
+  assertEq(toggleTodo(todos, "없음"), todos);
+  assertEq(removeTodo(todos, "없음"), todos);
 });
 
 /* =========================================================
