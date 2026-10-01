@@ -101,6 +101,25 @@ function clearCompleted(todos, category = "all") {
 }
 
 /* =========================================================
+   4. 파생 상태  — 보여줄 목록과 진행률
+   ========================================================= */
+function visibleTodos(todos, statusFilter, categoryFilter) {
+  const pool = todos.filter(t => categoryFilter === "all" || t.category === categoryFilter);
+  const active = pool.filter(t => !t.done).sort((a, b) => a.createdAt - b.createdAt);
+  const done = pool.filter(t => t.done).sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+  if (statusFilter === "active") return active;
+  if (statusFilter === "done") return done;
+  return active.concat(done);
+}
+
+function progress(todos, category = "all") {
+  const pool = todos.filter(t => category === "all" || t.category === category);
+  const total = pool.length;
+  const done = pool.filter(t => t.done).length;
+  return { done, total, percent: total === 0 ? 0 : Math.round((done / total) * 100) };
+}
+
+/* =========================================================
    TEST HARNESS  (?test 일 때만 동작)
    ========================================================= */
 const _tests = [];
@@ -269,6 +288,46 @@ test("없는 id를 건드리면 원본을 그대로 돌려준다", () => {
   const todos = [T()];
   assertEq(toggleTodo(todos, "없음"), todos);
   assertEq(removeTodo(todos, "없음"), todos);
+});
+
+/* ---- 파생 상태 ---- */
+test("미완료는 추가순, 완료는 최근 완료순으로 정렬한다", () => {
+  const todos = [
+    T({ id: "b", createdAt: 20 }),
+    T({ id: "a", createdAt: 10 }),
+    T({ id: "c", done: true, completedAt: 100 }),
+    T({ id: "d", done: true, completedAt: 200 })
+  ];
+  assertDeep(visibleTodos(todos, "active", "all").map(t => t.id), ["a", "b"]);
+  assertDeep(visibleTodos(todos, "done", "all").map(t => t.id), ["d", "c"]);
+  assertDeep(visibleTodos(todos, "all", "all").map(t => t.id), ["a", "b", "d", "c"]);
+});
+
+test("원본 배열을 변형하지 않는다", () => {
+  const todos = [T({ id: "b", createdAt: 20 }), T({ id: "a", createdAt: 10 })];
+  visibleTodos(todos, "all", "all");
+  assertEq(todos[0].id, "b");
+});
+
+test("카테고리 필터는 상태 필터와 AND로 결합한다", () => {
+  const todos = [T({ id: "a", category: "work" }), T({ id: "b", category: "study" })];
+  assertDeep(visibleTodos(todos, "active", "work").map(t => t.id), ["a"]);
+  assertDeep(visibleTodos(todos, "done", "work").map(t => t.id), []);
+});
+
+test("progress는 완료 비율을 정수 퍼센트로 돌려준다", () => {
+  const todos = [T({ id: "a", done: true }), T({ id: "b" }), T({ id: "c" })];
+  assertDeep(progress(todos), { done: 1, total: 3, percent: 33 });
+});
+
+test("할 일이 없으면 0/0 0%", () => {
+  assertDeep(progress([]), { done: 0, total: 0, percent: 0 });
+  assertDeep(progress([T({ category: "work" })], "study"), { done: 0, total: 0, percent: 0 });
+});
+
+test("카테고리별 진행률을 따로 센다", () => {
+  const todos = [T({ id: "a", category: "work", done: true }), T({ id: "b", category: "work" }), T({ id: "c", category: "study" })];
+  assertDeep(progress(todos, "work"), { done: 1, total: 2, percent: 50 });
 });
 
 /* =========================================================
