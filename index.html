@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>할 일</title>
+<style>
+  :root {
+    --바탕: #f6f7f9;  --판: #ffffff;  --글: #1b1d21;  --흐린글: #6b7280;
+    --선: #e3e6ea;    --강조: #2f6feb; --강조글: #ffffff;
+    --경고바탕: #fff4e5; --경고글: #7a4b00; --경고선: #f0c48a;
+    --업무: #2f6feb;  --개인: #16a34a; --공부: #b4530a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --바탕: #15171a; --판: #1e2126; --글: #e8eaed; --흐린글: #9aa1ab;
+      --선: #30343b;   --강조: #5b8def; --강조글: #10131a;
+      --경고바탕: #3a2c14; --경고글: #f2c98a; --경고선: #6b5021;
+      --업무: #7aa6f7; --개인: #5cc98a; --공부: #e09a5c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 16px 48px;
+    background: var(--바탕); color: var(--글);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .감싸개 { max-width: 640px; margin: 0 auto; }
+
+  /* 경고 띠 */
+  #경고띠:empty { display: none; }
+  #경고띠 { margin: 16px 0 0; }
+  .경고 {
+    background: var(--경고바탕); color: var(--경고글);
+    border: 1px solid var(--경고선); border-radius: 8px;
+    padding: 10px 12px; margin-bottom: 8px; font-size: 14px;
+  }
+
+  /* 헤더 — 제목 + 진행률 (9.1) */
+  header {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
+    padding: 20px 0 12px;
+  }
+  header h1 { margin: 0; font-size: 22px; letter-spacing: -0.01em; }
+  .진행 { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+  .막대 {
+    width: 120px; height: 8px; border-radius: 999px;
+    background: var(--선); overflow: hidden;
+  }
+  .막대 > div { height: 100%; width: 0; background: var(--강조); transition: width .18s; }
+  .진행글 { font-size: 13px; color: var(--흐린글); font-variant-numeric: tabular-nums; }
+
+  /* 입력 줄 */
+  form { display: flex; gap: 8px; margin-bottom: 12px; }
+  input[type="text"], select {
+    font: inherit; color: var(--글); background: var(--판);
+    border: 1px solid var(--선); border-radius: 8px; padding: 10px 12px;
+    min-height: 44px;
+  }
+  #제목입력 { flex: 1; min-width: 0; }
+  button {
+    font: inherit; cursor: pointer; border-radius: 8px;
+    border: 1px solid var(--선); background: var(--판); color: var(--글);
+    padding: 10px 14px; min-height: 44px;
+  }
+  #추가버튼 { background: var(--강조); color: var(--강조글); border-color: transparent; }
+  :focus-visible { outline: 2px solid var(--강조); outline-offset: 2px; }
+
+  #입력안내 { color: #b42318; font-size: 13px; min-height: 18px; margin: -6px 0 6px; }
+  #입력안내:empty { min-height: 0; margin: 0; }
+
+  /* 필터 */
+  .필터 { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .필터 button { padding: 8px 12px; font-size: 14px; min-height: 40px; }
+  .필터 button[aria-pressed="true"] {
+    background: var(--강조); color: var(--강조글); border-color: transparent;
+  }
+
+  /* 목록 */
+  ul { list-style: none; margin: 0; padding: 0; }
+  li {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: var(--판); border: 1px solid var(--선); border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 8px;
+  }
+  li.완료 { opacity: .55; }
+  li.완료 .제목 { text-decoration: line-through; }
+  li input[type="checkbox"] { width: 20px; height: 20px; margin: 11px 0 0; flex: none; }
+  .내용 { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+  .제목 {
+    flex: 1; min-width: 0; padding: 10px 0;
+    overflow-wrap: anywhere; word-break: break-word;   /* 7.7 긴 제목 */
+    cursor: text; background: none; border: none; text-align: left;
+    color: inherit; font: inherit; min-height: 44px;
+  }
+  .배지 {
+    flex: none; font-size: 12px; color: var(--흐린글);
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .점 { width: 8px; height: 8px; border-radius: 50%; background: var(--흐린글); }
+  .점.업무 { background: var(--업무); } .점.개인 { background: var(--개인); } .점.공부 { background: var(--공부); }
+  .단추들 { display: flex; gap: 4px; flex: none; }
+  .단추들 button { padding: 10px; min-width: 44px; font-size: 14px; }
+
+  .편집줄 { flex: 1; display: flex; flex-wrap: wrap; gap: 6px; }
+  .편집줄 input[type="text"] { flex: 1; min-width: 140px; }
+
+  .구분 {
+    display: flex; align-items: center; gap: 10px;
+    color: var(--흐린글); font-size: 13px; margin: 18px 0 10px;
+  }
+  .구분::before, .구분::after { content: ""; flex: 1; height: 1px; background: var(--선); }
+
+  .빈안내 { color: var(--흐린글); text-align: center; padding: 28px 0; }
+
+  footer { display: flex; justify-content: flex-end; margin-top: 16px; }
+
+  /* 자가검증 화면 (10.2) */
+  #검증판 { padding: 20px 0; }
+  #검증판 table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  #검증판 td { border-bottom: 1px solid var(--선); padding: 6px 8px; vertical-align: top; }
+  #검증판 .실패 { color: #b42318; font-weight: 600; }
+  #검증판 .요약 { font-size: 18px; margin-bottom: 14px; }
+  #검증판 code { overflow-wrap: anywhere; }
+
+  @media (max-width: 480px) {
+    form { flex-wrap: wrap; }
+    #제목입력 { flex: 1 0 100%; }
+    .진행 { margin-left: 0; width: 100%; }
+    .막대 { flex: 1; width: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="감싸개">
+  <div id="경고띠" role="alert"></div>
+
+  <div id="앱">
+    <header>
+      <h1>할 일</h1>
+      <div class="진행">
+        <div class="막대" id="막대" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div></div></div>
+        <span class="진행글" id="진행글">전체 0 / 0 (0%)</span>
+      </div>
+    </header>
+
+    <form id="입력줄" autocomplete="off">
+      <input type="text" id="제목입력" maxlength="200" placeholder="무엇을 할까요?" aria-label="할 일 제목">
+      <select id="카테고리선택" aria-label="카테고리">
+        <option>업무</option><option>개인</option><option>공부</option>
+      </select>
+      <button type="submit" id="추가버튼">추가</button>
+    </form>
+    <p id="입력안내" role="status"></p>
+
+    <nav class="필터" id="필터" aria-label="카테고리 필터"></nav>
+
+    <ul id="목록"></ul>
+
+    <footer><button id="비우기">완료 항목 비우기</button></footer>
+  </div>
+
+  <div id="검증판" hidden></div>
+</div>
+
+<script>
+"use strict";
+
+/* ══════════════════════════════════════════════════════════════
+   1계층 — 순수 함수
+   DOM 도 localStorage 도 건드리지 않는다. 전부 자가검증 대상.
+   ══════════════════════════════════════════════════════════════ */
+
+const 카테고리들 = ["업무", "개인", "공부"];
+const 기본카테고리 = "개인";          // 알 수 없는 값을 교정할 때 쓴다 (7.2)
+const 제목최대 = 200;
+const 스키마버전 = 1;
+
+function 빈상태() {
+  return {
+    할일목록: [],
+    다음번호: 1,
+    선택카테고리: "전체",   // 저장 안 함
+    편집중번호: null,       // 저장 안 함
+    저장가능: true,         // 저장 안 함
+    경고들: [],             // 저장 안 함
+  };
+}
+
+// 제목을 다듬는다. 쓸 수 없으면 null.
+function 제목다듬기(값) {
+  if (typeof 값 !== "string") return null;
+  const 다듬은 = 값.trim();
+  if (다듬은.length === 0) return null;
+  return 다듬은.slice(0, 제목최대);
+}
+
+function 할일추가(상태, 제목, 카테고리) {
+  const 다듬은 = 제목다듬기(제목);
+  if (다듬은 === null) return 상태;                       // 빈 제목은 거부 (F1)
+  const 고른 = 카테고리들.includes(카테고리) ? 카테고리 : 기본카테고리;
+  const 새할일 = {
+    번호: 상태.다음번호,
+    제목: 다듬은,
+    카테고리: 고른,
+    완료: false,
+    만든시각: new Date().toISOString(),                   // UTC 로 저장 (전역 규약)
+  };
+  return { ...상태, 할일목록: [...상태.할일목록, 새할일], 다음번호: 상태.다음번호 + 1 };
+}
+
+function 할일수정(상태, 번호, 제목, 카테고리) {
+  const 다듬은 = 제목다듬기(제목);
+  if (다듬은 === null) return 상태;                       // 제목을 비우면 거부 (F2)
+  const 고른 = 카테고리들.includes(카테고리) ? 카테고리 : 기본카테고리;
+  return {
+    ...상태,
+    할일목록: 상태.할일목록.map(할일 =>
+      할일.번호 === 번호 ? { ...할일, 제목: 다듬은, 카테고리: 고른 } : 할일),
+  };
+}
+
+function 할일삭제(상태, 번호) {
+  return {
+    ...상태,
+    할일목록: 상태.할일목록.filter(할일 => 할일.번호 !== 번호),
+    // 편집 중이던 항목이 사라지면 편집 상태도 풀어 준다 (F3)
+    편집중번호: 상태.편집중번호 === 번호 ? null : 상태.편집중번호,
+  };
+}
+
+function 완료뒤집기(상태, 번호) {
+  return {
+    ...상태,
+    할일목록: 상태.할일목록.map(할일 =>
+      할일.번호 === 번호 ? { ...할일, 완료: !할일.완료 } : 할일),
+  };
+}
+
+// 현재 필터에 보이는 완료 항목만 지운다 (F7)
+function 완료항목비우기(상태, 카테고리) {
+  const 지울까 = 할일 =>
+    할일.완료 && (카테고리 === "전체" || 할일.카테고리 === 카테고리);
+  return { ...상태, 할일목록: 상태.할일목록.filter(할일 => !지울까(할일)) };
+}
+
+function 목록걸러내기(할일목록, 카테고리) {
+  if (카테고리 === "전체") return [...할일목록];
+  return 할일목록.filter(할일 => 할일.카테고리 === 카테고리);
+}
+
+// 미완료가 먼저, 각 묶음 안에서는 번호 내림차순(최신이 위)
+function 목록정렬(할일목록) {
+  return [...할일목록].sort((가, 나) => {
+    if (가.완료 !== 나.완료) return 가.완료 ? 1 : -1;
+    return 나.번호 - 가.번호;
+  });
+}
+
+function 진행률계산(목록) {
+  const 전체수 = 목록.length;
+  const 완료수 = 목록.filter(할일 => 할일.완료).length;
+
+  let 백분율;
+  if (전체수 === 0)           백분율 = 0;
+  else if (완료수 === 0)      백분율 = 0;
+  else if (완료수 === 전체수) 백분율 = 100;
+  // 다 끝내지 않았는데 100% 로 보이면 안 되고,
+  // 하나라도 끝냈는데 0% 로 보이면 안 된다 (F6).
+  else 백분율 = Math.min(99, Math.max(1, Math.round((완료수 / 전체수) * 100)));
+
+  return { 완료수, 전체수, 백분율 };
+}
+
+function 카테고리별개수(할일목록) {
+  const 개수 = { 전체: 할일목록.length, 업무: 0, 개인: 0, 공부: 0 };
+  for (const 할일 of 할일목록) {
+    if (개수[할일.카테고리] !== undefined) 개수[할일.카테고리] += 1;
+  }
+  return 개수;
+}
+
+/* 손상된 데이터에서 살릴 수 있는 것만 살린다 (7.2).
+   돌려주는 값: { 상태, 복구실패수, 고침수 } */
+function 데이터검증(임의값) {
+  const 결과 = { 상태: 빈상태(), 복구실패수: 0, 고침수: 0 };
+
+  if (임의값 === null || typeof 임의값 !== "object" || Array.isArray(임의값)) {
+    if (임의값 !== null && 임의값 !== undefined) 결과.고침수 += 1;
+    return 결과;
+  }
+  if (typeof 임의값.스키마버전 === "number" && 임의값.스키마버전 > 스키마버전) {
+    결과.고침수 += 1;                      // 미래 형식은 해석할 수 없다
+    return 결과;
+  }
+  if (!Array.isArray(임의값.할일목록)) {
+    결과.고침수 += 1;
+    return 결과;
+  }
+
+  const 쓴번호 = new Set();
+  let 최대번호 = 0;
+  const 살린목록 = [];
+
+  for (const 날것 of 임의값.할일목록) {
+    if (날것 === null || typeof 날것 !== "object" || Array.isArray(날것)) {
+      결과.복구실패수 += 1; continue;
+    }
+    const 제목 = 제목다듬기(날것.제목);
+    if (제목 === null) { 결과.복구실패수 += 1; continue; }   // 제목 없는 할 일은 의미가 없다
+    if (제목 !== 날것.제목) 결과.고침수 += 1;
+
+    let 카테고리 = 날것.카테고리;
+    if (!카테고리들.includes(카테고리)) { 카테고리 = 기본카테고리; 결과.고침수 += 1; }
+
+    let 완료 = 날것.완료;
+    if (typeof 완료 !== "boolean") { 완료 = Boolean(완료); 결과.고침수 += 1; }
+
+    let 번호 = 날것.번호;
+    if (!Number.isInteger(번호) || 번호 < 1 || 쓴번호.has(번호)) {
+      번호 = null;                          // 아래에서 새로 발급
+      결과.고침수 += 1;
+    } else {
+      쓴번호.add(번호);
+      if (번호 > 최대번호) 최대번호 = 번호;
+    }
+
+    let 만든시각 = 날것.만든시각;
+    if (typeof 만든시각 !== "string" || Number.isNaN(Date.parse(만든시각))) {
+      만든시각 = new Date().toISOString(); 결과.고침수 += 1;
+    }
+
+    살린목록.push({ 번호, 제목, 카테고리, 완료, 만든시각 });
+  }
+
+  // 번호를 못 받은 항목에 지금까지의 최대 번호 뒤로 새로 발급한다
+  let 다음 = 최대번호 + 1;
+  for (const 할일 of 살린목록) {
+    if (할일.번호 === null) { 할일.번호 = 다음; 다음 += 1; }
+  }
+
+  let 다음번호 = 임의값.다음번호;
+  if (!Number.isInteger(다음번호) || 다음번호 < 다음) { 다음번호 = 다음; 결과.고침수 += 1; }
+
+  결과.상태 = { ...빈상태(), 할일목록: 살린목록, 다음번호 };
+  return 결과;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   2계층 — 저장
+   ══════════════════════════════════════════════════════════════ */
+
+const 저장키 = "할일앱.데이터";
+
+function 저장가능여부확인() {
+  try {
+    const 시험키 = "할일앱.쓰기시험";
+    localStorage.setItem(시험키, "1");
+    localStorage.removeItem(시험키);
+    return true;
+  } catch (예외) {
+    return false;                           // 사생활 보호 모드 등 (7.1)
+  }
+}
+
+function 저장하기(상태) {
+  if (!상태.저장가능) return;
+  try {
+    localStorage.setItem(저장키, JSON.stringify({
+      스키마버전,
+      다음번호: 상태.다음번호,
+      할일목록: 상태.할일목록,
+    }));
+  } catch (예외) {
+    // 용량 초과 등 (7.4). 조용히 실패하지 않는다.
+    상태.저장가능 = false;
+    const 안내 = 예외 && 예외.name === "QuotaExceededError"
+      ? "저장 공간이 꽉 찼습니다. 완료 항목을 비워 주세요."
+      : "저장에 실패했습니다. 새로고침하면 작성한 내용이 사라집니다.";
+    if (!상태.경고들.includes(안내)) 상태.경고들.push(안내);
+    경고띠그리기();
+  }
+}
+
+function 손상데이터보존(원본문자열) {
+  try {
+    localStorage.setItem("할일앱.손상된데이터." + new Date().toISOString(), 원본문자열);
+    return true;
+  } catch (예외) {
+    return false;
+  }
+}
+
+function 불러오기() {
+  const 새상태 = 빈상태();
+  새상태.저장가능 = 저장가능여부확인();
+  if (!새상태.저장가능) {
+    새상태.경고들.push("이 브라우저에서는 저장할 수 없습니다. 새로고침하면 작성한 내용이 사라집니다.");
+    return 새상태;
+  }
+
+  let 원본 = null;
+  try { 원본 = localStorage.getItem(저장키); } catch (예외) { 원본 = null; }
+  if (원본 === null) return 새상태;          // 첫 실행
+
+  let 해석값 = null;
+  let 깨짐 = false;
+  try { 해석값 = JSON.parse(원본); } catch (예외) { 깨짐 = true; }
+
+  const 검증 = 깨짐 ? { 상태: 빈상태(), 복구실패수: 0, 고침수: 1 } : 데이터검증(해석값);
+  새상태.할일목록 = 검증.상태.할일목록;
+  새상태.다음번호 = 검증.상태.다음번호;
+
+  if (검증.복구실패수 > 0 || 검증.고침수 > 0) {
+    // 조용히 날리지 않는다. 원본을 먼저 보존하고 알린다 (7.2).
+    const 보존됨 = 손상데이터보존(원본);
+    const 잃음 = 검증.복구실패수 > 0 ? `${검증.복구실패수}개 항목을 복구하지 못했습니다. ` : "";
+    새상태.경고들.push(
+      `저장된 데이터 일부를 읽을 수 없었습니다. ${잃음}` +
+      (보존됨 ? "원본은 할일앱.손상된데이터.* 키에 보관했습니다." : "원본을 보관하지 못했습니다."));
+  }
+  return 새상태;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   3계층 — 렌더
+   상태를 읽어 화면을 다시 그린다. 렌더 안에서 상태를 바꾸지 않는다.
+   입력 줄은 다시 그리지 않는다 — 그래서 카테고리 선택값과 포커스가 살아남는다.
+   ══════════════════════════════════════════════════════════════ */
+
+const 요소 = {
+  경고띠: document.getElementById("경고띠"),
+  막대: document.getElementById("막대"),
+  진행글: document.getElementById("진행글"),
+  필터: document.getElementById("필터"),
+  목록: document.getElementById("목록"),
+  비우기: document.getElementById("비우기"),
+  제목입력: document.getElementById("제목입력"),
+  카테고리선택: document.getElementById("카테고리선택"),
+  입력안내: document.getElementById("입력안내"),
+};
+
+let 상태 = 빈상태();
+
+function 경고띠그리기() {
+  요소.경고띠.textContent = "";
+  for (const 글 of 상태.경고들) {
+    const 칸 = document.createElement("div");
+    칸.className = "경고";
+    칸.textContent = "⚠ " + 글;              // 사용자 문자열은 textContent 로만 (7.6)
+    요소.경고띠.appendChild(칸);
+  }
+}
+
+function 진행률그리기(보이는목록) {
+  const { 완료수, 전체수, 백분율 } = 진행률계산(보이는목록);
+  요소.막대.firstElementChild.style.width = 백분율 + "%";
+  요소.막대.setAttribute("aria-valuenow", String(백분율));
+  // 헤더로 올라간 만큼 "무엇의 비율인지" 를 이름으로 밝힌다 (F6)
+  요소.진행글.textContent = `${상태.선택카테고리} ${완료수} / ${전체수} (${백분율}%)`;
+}
+
+function 필터그리기() {
+  const 개수 = 카테고리별개수(상태.할일목록);
+  요소.필터.textContent = "";
+  for (const 이름 of ["전체", ...카테고리들]) {
+    const 단추 = document.createElement("button");
+    단추.type = "button";
+    단추.textContent = `${이름} ${개수[이름]}`;
+    단추.dataset.필터 = 이름;
+    단추.setAttribute("aria-pressed", String(상태.선택카테고리 === 이름));
+    요소.필터.appendChild(단추);
+  }
+}
+
+function 아이콘단추(글자, 설명, 번호, 동작) {
+  const 단추 = document.createElement("button");
+  단추.type = "button";
+  단추.textContent = 글자;
+  단추.setAttribute("aria-label", 설명);
+  단추.dataset.번호 = String(번호);
+  단추.dataset.동작 = 동작;
+  return 단추;
+}
+
+function 항목그리기(할일) {
+  const 줄 = document.createElement("li");
+  줄.dataset.번호 = String(할일.번호);
+  if (할일.완료) 줄.className = "완료";
+
+  const 체크 = document.createElement("input");
+  체크.type = "checkbox";
+  체크.checked = 할일.완료;
+  체크.dataset.번호 = String(할일.번호);
+  체크.dataset.동작 = "완료";
+  체크.setAttribute("aria-label", 할일.제목 + " 완료");
+  줄.appendChild(체크);
+
+  if (상태.편집중번호 === 할일.번호) {
+    const 편집줄 = document.createElement("div");
+    편집줄.className = "편집줄";
+
+    const 입력 = document.createElement("input");
+    입력.type = "text"; 입력.maxLength = 제목최대; 입력.value = 할일.제목;
+    입력.dataset.역할 = "편집제목";
+    입력.setAttribute("aria-label", "제목 수정");
+
+    const 고르개 = document.createElement("select");
+    고르개.dataset.역할 = "편집카테고리";
+    고르개.setAttribute("aria-label", "카테고리 수정");
+    for (const 이름 of 카테고리들) {
+      const 선택지 = document.createElement("option");
+      선택지.textContent = 이름;
+      if (이름 === 할일.카테고리) 선택지.selected = true;
+      고르개.appendChild(선택지);
+    }
+
+    편집줄.append(입력, 고르개);
+    줄.appendChild(편집줄);
+    줄.appendChild(아이콘단추("✕", "삭제", 할일.번호, "삭제"));
+    return 줄;
+  }
+
+  const 내용 = document.createElement("div");
+  내용.className = "내용";
+
+  const 제목 = document.createElement("button");
+  제목.type = "button"; 제목.className = "제목";
+  제목.textContent = 할일.제목;                // 사용자 문자열 (7.6)
+  제목.dataset.번호 = String(할일.번호);
+  제목.dataset.동작 = "편집";
+  제목.setAttribute("aria-label", 할일.제목 + " 수정");
+
+  const 배지 = document.createElement("span");
+  배지.className = "배지";
+  const 점 = document.createElement("span");
+  점.className = "점 " + 할일.카테고리;
+  배지.append(점, document.createTextNode(할일.카테고리));
+
+  내용.append(제목, 배지);
+
+  const 단추들 = document.createElement("div");
+  단추들.className = "단추들";
+  단추들.append(아이콘단추("✎", "수정", 할일.번호, "편집"),
+                아이콘단추("✕", "삭제", 할일.번호, "삭제"));
+
+  줄.append(내용, 단추들);
+  return 줄;
+}
+
+function 목록그리기(보이는목록) {
+  요소.목록.textContent = "";
+  const 조각 = document.createDocumentFragment();   // 한 번에 붙인다 (8.5)
+
+  if (보이는목록.length === 0) {
+    const 안내 = document.createElement("li");
+    안내.className = "빈안내";
+    안내.textContent = 상태.선택카테고리 === "전체"
+      ? "할 일이 없습니다."
+      : `${상태.선택카테고리} 할 일이 없습니다.`;
+    조각.appendChild(안내);
+    요소.목록.appendChild(조각);
+    return;
+  }
+
+  const 정렬된 = 목록정렬(보이는목록);
+  const 미완료 = 정렬된.filter(할일 => !할일.완료);
+  const 완료 = 정렬된.filter(할일 => 할일.완료);
+
+  if (미완료.length === 0) {
+    const 안내 = document.createElement("li");
+    안내.className = "빈안내";
+    안내.textContent = "모두 끝냈습니다.";
+    조각.appendChild(안내);
+  }
+  for (const 할일 of 미완료) 조각.appendChild(항목그리기(할일));
+
+  if (완료.length > 0) {
+    const 구분 = document.createElement("li");
+    구분.className = "구분";
+    구분.textContent = `완료 ${완료.length}`;
+    조각.appendChild(구분);
+    for (const 할일 of 완료) 조각.appendChild(항목그리기(할일));
+  }
+  요소.목록.appendChild(조각);
+}
+
+function 바닥그리기(보이는목록) {
+  const 완료수 = 보이는목록.filter(할일 => 할일.완료).length;
+  요소.비우기.textContent = `완료 항목 비우기 (${완료수})`;
+  요소.비우기.disabled = 완료수 === 0;
+}
+
+function 렌더() {
+  const 보이는목록 = 목록걸러내기(상태.할일목록, 상태.선택카테고리);
+  경고띠그리기();
+  진행률그리기(보이는목록);
+  필터그리기();
+  목록그리기(보이는목록);
+  바닥그리기(보이는목록);
+  포커스복원();                               // 복원은 여기 한 곳에서만 (7.5)
+}
+
+// 제자리 편집 중인 입력란 하나만 되살리면 된다
+function 포커스복원() {
+  if (상태.편집중번호 === null) return;
+  const 줄 = 요소.목록.querySelector(`li[data-번호="${상태.편집중번호}"]`);
+  if (!줄) return;
+  const 입력 = 줄.querySelector('[data-역할="편집제목"]');
+  if (!입력) return;
+  입력.focus();
+  입력.setSelectionRange(입력.value.length, 입력.value.length);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   4계층 — 사건
+   상태를 바꾸는 유일한 통로는 적용() 이다.
+   ══════════════════════════════════════════════════════════════ */
+
+function 적용(새상태) {
+  상태 = 새상태;
+  저장하기(상태);
+  렌더();
+}
+
+function 안내띄우기(글) {
+  요소.입력안내.textContent = 글;
+  if (글) setTimeout(() => { 요소.입력안내.textContent = ""; }, 2500);
+}
+
+document.getElementById("입력줄").addEventListener("submit", 사건 => {
+  사건.preventDefault();
+  const 제목 = 요소.제목입력.value;
+  if (제목다듬기(제목) === null) {
+    안내띄우기("할 일을 입력해 주세요.");
+    요소.제목입력.focus();
+    return;
+  }
+  적용(할일추가(상태, 제목, 요소.카테고리선택.value));
+  요소.제목입력.value = "";
+  요소.제목입력.focus();                      // 연속 입력이 끊기지 않게 (F1)
+});
+
+요소.필터.addEventListener("click", 사건 => {
+  const 단추 = 사건.target.closest("button[data-필터]");
+  if (!단추) return;
+  적용({ ...상태, 선택카테고리: 단추.dataset.필터 });
+});
+
+// 목록에는 리스너 하나만 붙인다 (8.5)
+요소.목록.addEventListener("click", 사건 => {
+  const 대상 = 사건.target.closest("[data-동작]");
+  if (!대상) return;
+  const 번호 = Number(대상.dataset.번호);
+  const 동작 = 대상.dataset.동작;
+
+  if (동작 === "완료") { 적용(완료뒤집기(상태, 번호)); return; }
+  if (동작 === "삭제") { 적용(할일삭제(상태, 번호)); return; }
+  if (동작 === "편집") { 편집시작(번호); return; }
+});
+
+function 편집시작(번호) {
+  if (상태.편집중번호 === 번호) return;
+  const 확정된 = 상태.편집중번호 === null ? 상태 : 편집확정(상태);
+  적용({ ...확정된, 편집중번호: 번호 });
+}
+
+// 편집 중인 입력란의 현재 값으로 확정한다. 비어 있으면 상태를 그대로 둔다.
+function 편집확정(기준상태) {
+  const 번호 = 기준상태.편집중번호;
+  if (번호 === null) return 기준상태;
+  const 줄 = 요소.목록.querySelector(`li[data-번호="${번호}"]`);
+  if (!줄) return { ...기준상태, 편집중번호: null };
+  const 입력 = 줄.querySelector('[data-역할="편집제목"]');
+  const 고르개 = 줄.querySelector('[data-역할="편집카테고리"]');
+  if (!입력 || !고르개) return { ...기준상태, 편집중번호: null };
+
+  if (제목다듬기(입력.value) === null) return 기준상태;   // 비운 채로는 확정하지 않는다 (F2)
+  return { ...할일수정(기준상태, 번호, 입력.value, 고르개.value), 편집중번호: null };
+}
+
+요소.목록.addEventListener("keydown", 사건 => {
+  if (사건.target.dataset.역할 !== "편집제목") return;
+  if (사건.key === "Enter") {
+    사건.preventDefault();
+    const 다음 = 편집확정(상태);
+    if (다음 === 상태) { 안내띄우기("제목을 비울 수 없습니다. Esc 로 취소하세요."); return; }
+    적용(다음);
+  } else if (사건.key === "Escape") {
+    사건.preventDefault();
+    적용({ ...상태, 편집중번호: null });       // 원래 값 그대로 (F2)
+  }
+});
+
+요소.비우기.addEventListener("click", () => {
+  const 보이는목록 = 목록걸러내기(상태.할일목록, 상태.선택카테고리);
+  const 완료수 = 보이는목록.filter(할일 => 할일.완료).length;
+  if (완료수 === 0) return;
+  const 범위 = 상태.선택카테고리 === "전체" ? "" : `${상태.선택카테고리} `;
+  if (!confirm(`${범위}완료 항목 ${완료수}개를 지웁니다. 되돌릴 수 없습니다.`)) return;
+  적용(완료항목비우기(상태, 상태.선택카테고리));
+});
+
+/* ══════════════════════════════════════════════════════════════
+   5계층 — 자가검증 (?검증 일 때만 실행, 10.2)
+   1계층만 시험한다. DOM 과 localStorage 는 건드리지 않는다.
+   ══════════════════════════════════════════════════════════════ */
+
+const 검증모드 = new URLSearchParams(location.search).has("검증");
+
+function 자가검증실행() {
+  const 결과들 = [];
+  const 확인 = (이름, 실제, 기대) => {
+    const 실제글 = JSON.stringify(실제), 기대글 = JSON.stringify(기대);
+    결과들.push({ 이름, 통과: 실제글 === 기대글, 실제: 실제글, 기대: 기대글 });
+  };
+  const 틀 = 할일목록 => ({ ...빈상태(), 할일목록, 다음번호: 할일목록.length + 1 });
+  const 할일 = (번호, 제목, 카테고리, 완료) =>
+    ({ 번호, 제목, 카테고리, 완료, 만든시각: "2026-10-01T00:00:00.000Z" });
+
+  /* ── 할일추가 ── */
+  const 비었음 = 빈상태();
+  const 하나 = 할일추가(비었음, "  빨래  ", "업무");
+  확인("추가: 앞뒤 공백 제거", 하나.할일목록[0].제목, "빨래");
+  확인("추가: 번호 발급", 하나.할일목록[0].번호, 1);
+  확인("추가: 다음번호 증가", 하나.다음번호, 2);
+  확인("추가: 빈 제목 거부", 할일추가(비었음, "   ", "업무").할일목록.length, 0);
+  확인("추가: 알 수 없는 카테고리는 개인", 할일추가(비었음, "ㄱ", "기타").할일목록[0].카테고리, "개인");
+  확인("추가: 201자는 200자로 자름", 할일추가(비었음, "가".repeat(201), "업무").할일목록[0].제목.length, 200);
+
+  /* ── 할일수정 ── */
+  const 수정전 = 틀([할일(1, "가", "업무", false), 할일(2, "나", "공부", true)]);
+  확인("수정: 제목·카테고리 변경", 할일수정(수정전, 1, "다", "개인").할일목록[0],
+       { 번호: 1, 제목: "다", 카테고리: "개인", 완료: false, 만든시각: "2026-10-01T00:00:00.000Z" });
+  확인("수정: 다른 항목 불변", 할일수정(수정전, 1, "다", "개인").할일목록[1].제목, "나");
+  확인("수정: 빈 제목 거부", 할일수정(수정전, 1, "  ", "개인").할일목록[0].제목, "가");
+  확인("수정: 없는 번호는 무시", 할일수정(수정전, 99, "다", "개인").할일목록.length, 2);
+
+  /* ── 삭제·완료 ── */
+  확인("삭제: 해당 항목만 사라짐", 할일삭제(수정전, 1).할일목록.map(ㅎ => ㅎ.번호), [2]);
+  확인("삭제: 다음번호 불변", 할일삭제(수정전, 1).다음번호, 수정전.다음번호);
+  확인("완료: 두 번 뒤집으면 원래대로",
+       완료뒤집기(완료뒤집기(수정전, 1), 1).할일목록[0].완료, false);
+
+  /* ── 완료항목비우기 ── */
+  const 섞임 = 틀([할일(1, "가", "업무", true), 할일(2, "나", "업무", false),
+                   할일(3, "다", "공부", true)]);
+  확인("비우기: 전체는 완료만 지움",
+       완료항목비우기(섞임, "전체").할일목록.map(ㅎ => ㅎ.번호), [2]);
+  확인("비우기: 업무는 업무 완료만 지움",
+       완료항목비우기(섞임, "업무").할일목록.map(ㅎ => ㅎ.번호), [2, 3]);
+  확인("비우기: 다음번호 불변", 완료항목비우기(섞임, "전체").다음번호, 섞임.다음번호);
+
+  /* ── 조회·계산 ── */
+  확인("걸러내기: 전체", 목록걸러내기(섞임.할일목록, "전체").length, 3);
+  확인("걸러내기: 공부", 목록걸러내기(섞임.할일목록, "공부").map(ㅎ => ㅎ.번호), [3]);
+  확인("정렬: 미완료 먼저, 번호 내림차순",
+       목록정렬(섞임.할일목록).map(ㅎ => ㅎ.번호), [2, 3, 1]);
+  확인("개수: 완료 포함", 카테고리별개수(섞임.할일목록), { 전체: 3, 업무: 2, 개인: 0, 공부: 1 });
+
+  const 목록만들기 = (전체, 완료) => Array.from({ length: 전체 },
+    (_, 칸) => 할일(칸 + 1, "ㄱ", "업무", 칸 < 완료));
+  확인("진행률 0/0", 진행률계산([]), { 완료수: 0, 전체수: 0, 백분율: 0 });
+  확인("진행률 0/10", 진행률계산(목록만들기(10, 0)).백분율, 0);
+  확인("진행률 10/10", 진행률계산(목록만들기(10, 10)).백분율, 100);
+  확인("진행률 199/200 → 99 (반올림 100 이지만 깎음)", 진행률계산(목록만들기(200, 199)).백분율, 99);
+  확인("진행률 1/300 → 1 (반올림 0 이지만 올림)", 진행률계산(목록만들기(300, 1)).백분율, 1);
+  확인("진행률 1/3 → 33", 진행률계산(목록만들기(3, 1)).백분율, 33);
+
+  /* ── 데이터검증 (7.2) ── */
+  const 정상 = { 스키마버전: 1, 다음번호: 3,
+                 할일목록: [할일(1, "가", "업무", false), 할일(2, "나", "공부", true)] };
+  const 정상결과 = 데이터검증(정상);
+  확인("검증: 정상 데이터는 그대로", 정상결과.상태.할일목록, 정상.할일목록);
+  확인("검증: 정상 데이터는 고치지 않음", [정상결과.복구실패수, 정상결과.고침수], [0, 0]);
+  확인("검증: 최상위가 배열", 데이터검증([]).상태.할일목록.length, 0);
+  확인("검증: 최상위가 문자열", 데이터검증("가").상태.할일목록.length, 0);
+  확인("검증: null", 데이터검증(null).상태.할일목록.length, 0);
+  확인("검증: 할일목록이 배열 아님", 데이터검증({ 할일목록: "가" }).상태.할일목록.length, 0);
+  확인("검증: 미래 스키마버전은 거부",
+       데이터검증({ 스키마버전: 2, 할일목록: [할일(1, "가", "업무", false)] }).상태.할일목록.length, 0);
+  확인("검증: 항목이 객체 아님 → 버림",
+       데이터검증({ 할일목록: ["가", 3, null] }).복구실패수, 3);
+  확인("검증: 제목 공백만 → 버림",
+       데이터검증({ 할일목록: [{ 번호: 1, 제목: "   ", 카테고리: "업무", 완료: false }] }).복구실패수, 1);
+  확인("검증: 제목 201자 → 자름",
+       데이터검증({ 할일목록: [{ 번호: 1, 제목: "가".repeat(201), 카테고리: "업무", 완료: false }] })
+         .상태.할일목록[0].제목.length, 200);
+  확인("검증: 카테고리 오타 → 개인",
+       데이터검증({ 할일목록: [{ 번호: 1, 제목: "가", 카테고리: "work", 완료: false }] })
+         .상태.할일목록[0].카테고리, "개인");
+  확인("검증: 완료가 문자열 → 불",
+       데이터검증({ 할일목록: [{ 번호: 1, 제목: "가", 카테고리: "업무", 완료: "true" }] })
+         .상태.할일목록[0].완료, true);
+  const 중복번호 = 데이터검증({ 할일목록: [
+    { 번호: 5, 제목: "가", 카테고리: "업무", 완료: false },
+    { 번호: 5, 제목: "나", 카테고리: "업무", 완료: false }] });
+  확인("검증: 번호 중복 → 재발급으로 유일",
+       new Set(중복번호.상태.할일목록.map(ㅎ => ㅎ.번호)).size, 2);
+  확인("검증: 재발급 뒤 다음번호가 최대보다 큼",
+       중복번호.상태.다음번호 > Math.max(...중복번호.상태.할일목록.map(ㅎ => ㅎ.번호)), true);
+  확인("검증: 다음번호가 최대 번호보다 작으면 교정",
+       데이터검증({ 다음번호: 1, 할일목록: [할일(9, "가", "업무", false)] }).상태.다음번호, 10);
+  확인("검증: 만든시각 없으면 채움",
+       typeof 데이터검증({ 할일목록: [{ 번호: 1, 제목: "가", 카테고리: "업무", 완료: false }] })
+         .상태.할일목록[0].만든시각, "string");
+
+  /* ── 불변식 (5.3) ── */
+  const 뒤섞인 = 데이터검증({ 다음번호: 0, 할일목록: [
+    { 번호: 3, 제목: " 가 ", 카테고리: "ㅁ", 완료: 1 },
+    { 번호: 3, 제목: "나", 카테고리: "공부", 완료: false },
+    { 제목: "다", 카테고리: "개인", 완료: true },
+    { 제목: "   " }] }).상태;
+  확인("불변식: 번호 유일", new Set(뒤섞인.할일목록.map(ㅎ => ㅎ.번호)).size, 뒤섞인.할일목록.length);
+  확인("불변식: 모든 번호 < 다음번호",
+       뒤섞인.할일목록.every(ㅎ => ㅎ.번호 < 뒤섞인.다음번호), true);
+  확인("불변식: 카테고리는 고정 3개",
+       뒤섞인.할일목록.every(ㅎ => 카테고리들.includes(ㅎ.카테고리)), true);
+  확인("불변식: 제목 길이 1~200",
+       뒤섞인.할일목록.every(ㅎ => ㅎ.제목.length >= 1 && ㅎ.제목.length <= 200), true);
+
+  /* ── 결과 그리기 ── */
+  const 통과 = 결과들.filter(ㄱ => ㄱ.통과).length;
+  const 실패 = 결과들.length - 통과;
+  const 판 = document.getElementById("검증판");
+  document.getElementById("앱").hidden = true;
+  판.hidden = false;
+
+  const 요약 = document.createElement("p");
+  요약.className = "요약";
+  요약.textContent = `통과 ${통과} / 실패 ${실패}`;
+  if (실패 > 0) 요약.classList.add("실패");
+  판.appendChild(요약);
+
+  const 표 = document.createElement("table");
+  for (const ㄱ of 결과들) {
+    if (ㄱ.통과 && 실패 > 0) continue;        // 실패가 있으면 실패만 보여 준다
+    const 줄 = document.createElement("tr");
+    const 칸1 = document.createElement("td");
+    칸1.textContent = ㄱ.통과 ? "통과" : "실패";
+    if (!ㄱ.통과) 칸1.className = "실패";
+    const 칸2 = document.createElement("td");
+    칸2.textContent = ㄱ.이름;
+    const 칸3 = document.createElement("td");
+    if (!ㄱ.통과) {
+      const 코드 = document.createElement("code");
+      코드.textContent = `기대 ${ㄱ.기대} / 실제 ${ㄱ.실제}`;
+      칸3.appendChild(코드);
+    }
+    줄.append(칸1, 칸2, 칸3);
+    표.appendChild(줄);
+  }
+  판.appendChild(표);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   시작
+   ══════════════════════════════════════════════════════════════ */
+
+if (검증모드) {
+  자가검증실행();
+} else {
+  상태 = 불러오기();
+  렌더();
+  요소.제목입력.focus();
+}
+</script>
+</body>
+</html>
