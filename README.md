@@ -7,7 +7,7 @@
 
 **설계 단계 — 구현 전.** 이 저장소에는 아직 PRD(설계 문서)만 있다.
 
-→ [PRD: 할 일 관리 앱 설계 문서](docs/superpowers/specs/2026-10-01-todolist-design.md)
+→ [PRD: 할 일 관리 앱 설계 문서](PRD.md)
 
 ## 주요 기능
 
@@ -45,7 +45,8 @@
 ```
 Study02_ToDoList/
 ├─ README.md
+├─ PRD.md              설계 문서
 ├─ index.html          (구현 예정 — 앱 전체)
-└─ docs/superpowers/specs/
-   └─ 2026-10-01-todolist-design.md
+└─ docs/superpowers/plans/
+   └─ 2026-10-01-todolist.md   구현 계획
 ```
