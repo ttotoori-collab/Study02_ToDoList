@@ -328,6 +328,9 @@ function render(root, state, ui) {
     btn.classList.toggle("active", btn.dataset.status === ui.statusFilter);
   });
 
+  // 완료 비우기는 현재 카테고리 필터 범위의 완료 항목을 지운다
+  root.querySelector("#clear-done").disabled = progress(state.todos, ui.categoryFilter).done === 0;
+
   const emptyEl = root.querySelector("#empty");
   if (shown.length > 0) {
     emptyEl.hidden = true;
@@ -419,6 +422,36 @@ function mount(root) {
     }
     if (event.target.dataset.action === "delete") {
       if (confirm("삭제할까요?")) setTodos(removeTodo(state.todos, id));
+      return;
+    }
+    if (event.target.dataset.action === "edit") {
+      // 다른 항목을 편집 중이었다면 editingId 가 교체되면서 자동으로 취소된다
+      setUi({ editingId: id });
+      const input = root.querySelector('li[data-id="' + id + '"] .edit-input');
+      if (input) { input.focus(); input.select(); }
+    }
+  });
+
+  root.querySelector("#list").addEventListener("keydown", event => {
+    if (!event.target.classList.contains("edit-input")) return;
+    const li = event.target.closest("li[data-id]");
+    if (!li) return;
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const next = editTodo(state.todos, li.dataset.id, event.target.value);
+      ui.editingId = null;
+      setTodos(next);
+    } else if (event.key === "Escape") {
+      setUi({ editingId: null });
+    }
+  });
+
+  root.querySelector("#clear-done").addEventListener("click", () => {
+    const count = progress(state.todos, ui.categoryFilter).done;
+    if (count === 0) return;
+    if (confirm("완료한 할 일 " + count + "개를 삭제합니다. 계속할까요?")) {
+      setTodos(clearCompleted(state.todos, ui.categoryFilter));
     }
   });
 
